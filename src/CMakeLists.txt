@@ -1,7 +1,3 @@
-# Build file for CMake, see http://www.cmake.org/
-#
-# When compiling with MingW, set "-Wl,--subsystem,windows" in the
-# CMAKE_EXE_LINKER_FLAGS field (do not add the quotes).
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
@@ -96,17 +92,7 @@ INSTALL(FILES ${TPL_FILES}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/template
         COMPONENT templates)
 
-IF(NOT APPLE)
 
-SET(DEB_DESKTOP_DIR     "/usr/share/applications")
-SET(DEB_MIME_DIR        "/usr/share/mime/packages")
-SET(DEB_PIXMAPS_DIR     "/usr/share/pixmaps")
-
-INSTALL(FILES ${CMAKE_BINARY_DIR}/kicadlibrarian.desktop DESTINATION ${DEB_DESKTOP_DIR})
-INSTALL(FILES ${CMAKE_BINARY_DIR}/kicadlibrarian.xml DESTINATION ${DEB_MIME_DIR})
-INSTALL(FILES ${CMAKE_BINARY_DIR}/kicadlibrarian32.png DESTINATION ${DEB_PIXMAPS_DIR})
-ENDIF
-##### Packaging instructions
 
 SET(CPACK_GENERATOR DEB)
 SET(CPACK_DEBIAN_PACKAGE_ARCHITECTURE i386)
