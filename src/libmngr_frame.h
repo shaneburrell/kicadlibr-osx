@@ -17,7 +17,7 @@
  *  License for the specific language governing permissions and limitations
  *  under the License.
  *
- *  $Id: libmngr_frame.h 5113 2014-08-13 07:34:05Z thiadmer $
+ *  $Id: libmngr_frame.h 5359 2015-10-02 07:40:24Z thiadmer $
  */
 #ifndef __libmngr_frame__
 #define __libmngr_frame__
@@ -58,6 +58,7 @@ protected:
 	void OnTemplateOptions(wxCommandEvent& event);
 	void OnCompareMode(wxCommandEvent& event);
 	void OnDetailsPanel(wxCommandEvent& event);
+	void OnSyncMode(wxCommandEvent& event);
 	void OnFilterToggle(wxCommandEvent& event);
 	void OnHelp(wxCommandEvent& event);
 	void OnAbout(wxCommandEvent& event);
@@ -157,6 +158,8 @@ private:
 	wxString GetSelection(wxListCtrl* list, wxChoice* choice=0, wxString* library=0, wxString* author=0);
 	bool RemoveSelection(wxListCtrl* list, int* index);
 
+	void SyncScroll(int side);
+	int CompareNames(const wxString& name1, const wxString& name2);
 	long GetListPosition(const wxString &name, const wxListCtrl* list);
 	void CollectLibraries(const wxString &path, wxArrayString* list);
 	void CollectAllLibraries(bool eraselists=true);
@@ -164,6 +167,7 @@ private:
 	wxString GetPinSectionName(int side, int index);
 	void WarnNoRepository(wxChoice* choice);
 	void HandleLibrarySelect(wxChoice* choice, wxListCtrl* list, int side);
+	void SynchronizeLibraries(wxListCtrl* list1, wxListCtrl* list2);
 	void CollectSymbols(const wxString &path, wxListCtrl* list, const wxString& filter);
 	void CollectFootprints(const wxString &path, wxListCtrl* list, const wxString& filter);
 	void LoadPart(int index, wxListCtrl* list, wxChoice* choice, int fp);
@@ -199,6 +203,7 @@ private:
 	double Scale;				/* scale used in the viewport */
 	bool SymbolMode;			/* show schematic symbols instead of footprints */
 	bool CompareMode;
+	bool SyncMode;
 	bool ShowLabels;
 	bool ShowMeasurements;
 	bool DrawCentreCross;

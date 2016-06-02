@@ -16,7 +16,7 @@
  *  License for the specific language governing permissions and limitations
  *  under the License.
  *
- *  $Id: libraryfunctions.h 5167 2014-12-23 16:12:23Z thiadmer $
+ *  $Id: libraryfunctions.h 5238 2015-04-13 21:04:05Z thiadmer $
  */
 #ifndef LIBRARYFUNCTIONS_H
 #define LIBRARYFUNCTIONS_H
@@ -283,10 +283,11 @@ bool VRMLFromTemplate(const wxString vrmlpath, const wxString& templatename, RPN
 
 wxString GetTemplateName(const wxArrayString& module);
 wxString GetDescription(const wxArrayString& module, bool symbolmode);
+bool SetDescription(wxArrayString& module, const wxString& description, bool symbolmode);
+wxString GetKeywords(const wxArrayString& module, bool symbolmode);
 bool GetBodySize(const wxArrayString& module, BodyInfo* info, bool symbolmode, bool unit_mm);
 bool GetTextLabelSize(const wxArrayString& module, LabelInfo* info, bool symbolmode, bool unit_mm);
 void SetTextLabelSize(wxArrayString& module, const LabelInfo& info, bool symbolmode, bool unit_mm);
-bool SetDescription(wxArrayString& module, const wxString& description, bool symbolmode);
 
 wxString GetPrefix(const wxArrayString& symbol);
 wxString GetAliases(const wxArrayString& symbol);
@@ -297,9 +298,10 @@ bool GetPinNames(const wxArrayString& symbol, PinInfo* info, int* count);
 bool SetPinNames(wxArrayString& symbol, const PinInfo* info, int count);
 void ReAssignPins(PinInfo* info, int count, const BodyInfo& body, const PinSection custsections[], size_t maxsections);
 
-bool StoreFootprintInfo(const wxString& name, const wxString& description, 
+bool StoreFootprintInfo(const wxString& name, const wxString& description, const wxString& keywords, 
 						double pitch, double span, int pincount, const wxString& imagefile);
-bool StoreSymbolInfo(const wxString& name, const wxString& description, const wxString& aliases, const wxString& footprints, const wxString& imagefile);
+bool StoreSymbolInfo(const wxString& name, const wxString& description, const wxString& keywords,
+					 const wxString& aliases, const wxString& footprints, const wxString& imagefile);
 
 bool ExistSymbol(const wxString& filename, const wxString& name, const wxString& author = wxEmptyString);
 bool InsertSymbol(const wxString& filename, const wxString& name, const wxArrayString& symbol);

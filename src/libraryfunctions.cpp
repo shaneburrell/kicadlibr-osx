@@ -2,7 +2,7 @@
  *  Librarian for KiCad, a free EDA CAD application.
  *  Utility functions for parsing and writing libraries.
  *
- *  Copyright (C) 2013-2014 CompuPhase
+ *  Copyright (C) 2013-2015 CompuPhase
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy
@@ -16,7 +16,7 @@
  *  License for the specific language governing permissions and limitations
  *  under the License.
  *
- *  $Id: libraryfunctions.cpp 5167 2014-12-23 16:12:23Z thiadmer $
+ *  $Id: libraryfunctions.cpp 5364 2015-10-05 09:38:08Z thiadmer $
  */
 
 #include <wx/dir.h>
@@ -614,12 +614,16 @@ void TranslateToSexpr(wxArrayString* output, const wxArrayString& module)
 			double xpos = GetTokenDim(&line, true);
 			double ypos = GetTokenDim(&line, true);
 			long angle = GetTokenLong(&line);
-			wxString newline;
-			if (angle == 0)
-				newline = wxString::Format(wxT("(at %.4f %.4f)"), xpos, ypos);
-			else
-				newline = wxString::Format(wxT("(at %.4f %.4f %ld)"), xpos, ypos, angle);
-			output->Add(newline);
+			/* the "module position" is redundant for library modules, so we only copy
+			   it to the output when it is non-zero */
+			if (!Equal(xpos, 0.0) || !Equal(ypos, 0.0) || angle != 0) {
+					wxString newline;
+					if (angle == 0)
+						newline = wxString::Format(wxT("(at %.4f %.4f)"), xpos, ypos);
+					else
+						newline = wxString::Format(wxT("(at %.4f %.4f %ld)"), xpos, ypos, angle);
+					output->Add(newline);
+			}
 		} else if (keyword.CmpNoCase(wxT("At")) == 0) {
 			wxString type = GetToken(&line);
 			if (type.CmpNoCase(wxT("SMD")) == 0)
@@ -910,6 +914,8 @@ void TranslateToSexpr(wxArrayString* output, const wxArrayString& module)
 				keyword = GetToken(&line);
 				if (keyword.CmpNoCase(wxT("Na")) == 0) {
 					path = line;
+					if (path[0] != wxT('"'))
+							path = wxT("\"") + path + wxT("\"");
 				} else if (keyword.CmpNoCase(wxT("Of")) == 0) {
 					ox = GetTokenDim(&line, true);
 					oy = GetTokenDim(&line, true);
@@ -924,7 +930,7 @@ void TranslateToSexpr(wxArrayString* output, const wxArrayString& module)
 					rz = GetTokenDim(&line, true);
 				}
 			}
-			wxString newline = wxString::Format(wxT("(model \"%s\" (at (xyz %.4f %.4f %.4f)) (scale (xyz %.4f %.4f %.4f)) (rotate (xyz %.4f %.4f %.4f)))"),
+			wxString newline = wxString::Format(wxT("(model %s (at (xyz %.4f %.4f %.4f)) (scale (xyz %.4f %.4f %.4f)) (rotate (xyz %.4f %.4f %.4f)))"),
 																					path.c_str(), ox, oy, oz, sx, sy, sz, rx, ry, rz);
 			output->Add(newline);
 		}
@@ -936,10 +942,16 @@ void TranslateToLegacy(wxArrayString* output, const wxArrayString& module)
 	wxASSERT(output != 0);
 	output->Clear();
 	wxString symbolname;
+	wxString templatename;
 	for (unsigned idx = 0; idx < module.Count(); idx++) {
 		wxString line = module[idx];
+		if (line[0] == '#') {
+			/* check for a #template comment, to translate this to "AR" */
+			if (line.Left(9).CmpNoCase(wxT("#template")) == 0)
+				templatename = line.Mid(9);
+			continue;
+		}
 		wxString keyword = GetToken(&line);
-		//??? first check for a template comment, translate this to "AR"
 		if (keyword[0] != '(')
 			continue;
 		keyword = keyword.Mid(1);
@@ -999,6 +1011,8 @@ void TranslateToLegacy(wxArrayString* output, const wxArrayString& module)
 				newline = wxString::Format(wxT("Op %ld %ld 0"), penalty90, penalty180);
 				output->Add(newline);
 			}
+			if (templatename.Length() > 0)
+				output->Add(wxT("AR ") + templatename);
 		} else if (keyword.CmpNoCase(wxT("descr")) == 0) {
 			output->Add(wxT("Cd ") + line);
 		} else if (keyword.CmpNoCase(wxT("tags")) == 0) {
@@ -1918,8 +1932,7 @@ bool ExistFootprint(const wxString& filename, const wxString& name, const wxStri
 		#endif
 	} else {
 		if (wxFileName::DirExists(filename)) {
-			wxFileName fname(filename, name);
-			fname.SetExt(wxT("kicad_mod"));
+			wxFileName fname(filename, name + wxT(".kicad_mod"));
 			return fname.FileExists();
 		} else {
 			wxTextFile file;
@@ -1986,8 +1999,7 @@ bool InsertFootprint(const wxString& filename, const wxString& name, const wxArr
 	} else {
 		wxTextFile file;
 		if (type == VER_S_EXPR) {
-			wxFileName fname(filename, name);
-			fname.SetExt(wxT("kicad_mod"));
+			wxFileName fname(filename, name + wxT(".kicad_mod"));
 			if (wxFileExists(fname.GetFullPath()))
 				wxRemoveFile(fname.GetFullPath());
 			if (!file.Create(fname.GetFullPath()))
@@ -2085,8 +2097,7 @@ bool RemoveFootprint(const wxString& filename, const wxString& name)
 			return msg.length() == 0;
 		#endif
 	} else if (wxFileName::DirExists(filename)) {
-		wxFileName fname(filename, name);
-		fname.SetExt(wxT("kicad_mod"));
+		wxFileName fname(filename, name + wxT(".kicad_mod"));
 		return wxRemoveFile(fname.GetFullPath());
 	} else {
 		wxTextFile file;
@@ -2196,10 +2207,8 @@ bool RenameFootprint(const wxString& filename, const wxString& oldname, const wx
 			return msg.length() == 0;
 		#endif
 	} else if (wxFileName::DirExists(filename)) {
-		wxFileName old_fname(filename, oldname);
-		old_fname.SetExt(wxT("kicad_mod"));
-		wxFileName new_fname(filename, newname);
-		new_fname.SetExt(wxT("kicad_mod"));
+		wxFileName old_fname(filename, oldname + wxT(".kicad_mod"));
+		wxFileName new_fname(filename, newname + wxT(".kicad_mod"));
 		if (!wxRenameFile(old_fname.GetFullPath(), new_fname.GetFullPath(), true))
 			return false;
 		wxTextFile file;
@@ -2331,8 +2340,10 @@ bool LoadFootprint(const wxString& filename, const wxString& name, const wxStrin
 		wxTextFile file;
 		/* check whether this is an s-expression library */
 		if (wxFileName::DirExists(filename)) {
-			wxFileName fname(filename, name);
-			fname.SetExt(wxT("kicad_mod"));
+			/* the symbol name may contain periods, and the part after the last period may then be
+			   misdetected as an extension, if we use fname.SetExt() -> so we concatenate the
+			   extension rather than use SetExt() */
+			wxFileName fname(filename, name + wxT(".kicad_mod"));
 			if (!file.Open(fname.GetFullPath()))
 				return false;
 			*version = VER_S_EXPR;
@@ -3420,6 +3431,14 @@ wxString GetTemplateName(const wxArrayString& module)
 		}
 	}
 
+	/* strip off parameters */
+	int idx = name.Find('[');
+	if (idx > 0) {
+		//??? parameters = name.Mid(idx + 1);
+		//??? remove ']'
+		name = name.Left(idx);
+	}
+
 	wxString ext = symbolmode ? wxT(".st") : wxT(".mt");
 	wxString path = theApp->GetTemplatePath() + wxT(DIRSEP_STR) + name + ext;
 	if (!wxFileExists(path))
@@ -3507,6 +3526,26 @@ bool SetDescription(wxArrayString& module, const wxString& description, bool sym
 		}
 	}
 	return false;
+}
+
+/* For symbols and footprints */
+wxString GetKeywords(const wxArrayString& module, bool symbolmode)
+{
+	/* although it is possible to detect whether the "module" contains a footprint
+	   or a symbol, it is probably best not to try */
+	for (unsigned idx = 0; idx < module.Count(); idx++) {
+		wxString line = module[idx];
+		wxString keyword = GetToken(&line);
+		if (!symbolmode && keyword.CmpNoCase(wxT("Kw")) == 0) {
+			return line;
+		} else if (!symbolmode && keyword.Cmp(wxT("(tags")) == 0) {
+			line = line.Left(line.length() - 1);	/* strip trailing quote */
+			return GetToken(&line);	/* to strip the double quotes (if present) */
+		} else if (symbolmode && keyword.CmpNoCase(wxT("K")) == 0) {
+			return line;
+		}
+	}
+	return wxEmptyString;
 }
 
 /* For symbols */
@@ -4842,8 +4881,9 @@ bool TranslatePadInfo(wxArrayString* module, FootprintInfo* info)
 /** Stores extra information on the footprint in the repository; this is used
  *  for the on-line overview.
  */
-bool StoreFootprintInfo(const wxString& name, const wxString& description, 
-						double pitch, double span, int pincount, const wxString& imagefile)
+bool StoreFootprintInfo(const wxString& name, const wxString& description,
+						const wxString& keywords, double pitch, double span, int pincount,
+						const wxString& imagefile)
 {
 	#if !defined NO_CURL
 		wxString params;
@@ -4854,6 +4894,8 @@ bool StoreFootprintInfo(const wxString& name, const wxString& description,
 			params += wxT("&span=") + wxString::Format(wxT("%.3f"), span);
 		if (pincount > 0)
 			params += wxT("&pins=") + wxString::Format(wxT("%d"), pincount);
+		if (keywords.length() > 0)
+			params += wxT("&keywords=") + keywords;
 		wxString msg = curlPutInfo(name, wxT("footprints"), params, imagefile);
 		return (msg.length() == 0);
 	#else
@@ -4864,13 +4906,19 @@ bool StoreFootprintInfo(const wxString& name, const wxString& description,
 /** Stores extra information on the symbol in the repository; this is used
  *  for the on-line overview.
  */
-bool StoreSymbolInfo(const wxString& name, const wxString& description, const wxString& aliases, const wxString& footprints, const wxString& imagefile)
+bool StoreSymbolInfo(const wxString& name, const wxString& description,
+					 const wxString& keywords, const wxString& aliases,
+					 const wxString& footprints, const wxString& imagefile)
 {
 	#if !defined NO_CURL
 		wxString params;
 		params = wxT("descr=") + URLEncode(description);
-		params += wxT("&alias=") + URLEncode(aliases);
-		params += wxT("&fplist=") + URLEncode(footprints);
+		if (aliases.length() > 0)
+			params += wxT("&alias=") + URLEncode(aliases);
+		if (footprints.length() > 0)
+			params += wxT("&fplist=") + URLEncode(footprints);
+		if (keywords.length() > 0)
+			params += wxT("&keywords=") + keywords;
 		wxString msg = curlPutInfo(name, wxT("symbols"), params, imagefile);
 		return (msg.length() == 0);
 	#else

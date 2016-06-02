@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////
-// C++ code generated with wxFormBuilder (version Jun  5 2014)
+// C++ code generated with wxFormBuilder (version Jun 17 2015)
 // http://www.wxformbuilder.org/
 //
 // PLEASE DO "NOT" EDIT THIS FILE!
@@ -53,26 +53,29 @@
 #define IDM_SCHEMATICMODE 1006
 #define IDM_COMPAREMODE 1007
 #define IDM_DETAILSPANEL 1008
-#define IDM_FILTER 1009
-#define IDM_DLGREMOTE 1010
-#define IDM_DLGREPORT 1011
-#define IDM_TEMPLATEOPTIONS 1012
-#define IDM_DLGOPTIONS 1013
-#define IDM_LEFT_LIB 1014
-#define IDM_LEFT_MOD 1015
-#define IDM_MOVEMODULE 1016
-#define IDM_COPYMODULE 1017
-#define IDM_DELETEMODULE 1018
-#define IDM_RENAMEMODULE 1019
-#define IDM_RIGHT_LIB 1020
-#define IDM_RIGHT_MOD 1021
-#define IDT_ZOOMIN 1022
-#define IDT_ZOOMOUT 1023
-#define IDT_MEASUREMENTS 1024
-#define IDT_DETAILSPANEL 1025
-#define IDT_LEFTFOOTPRINT 1026
-#define IDT_RIGHTFOOTPRINT 1027
-#define IDM_PANELVIEW 1028
+#define IDM_SYNCMODE 1009
+#define IDM_FILTER 1010
+#define IDM_DLGREMOTE 1011
+#define IDM_DLGREPORT 1012
+#define IDM_TEMPLATEOPTIONS 1013
+#define IDM_DLGOPTIONS 1014
+#define IDM_LEFT_LIB 1015
+#define IDM_LEFT_MOD 1016
+#define IDM_MOVEMODULE 1017
+#define IDM_COPYMODULE 1018
+#define IDM_DELETEMODULE 1019
+#define IDM_RENAMEMODULE 1020
+#define IDM_RIGHT_LIB 1021
+#define IDM_RIGHT_MOD 1022
+#define IDT_ZOOMIN 1023
+#define IDT_ZOOMOUT 1024
+#define IDT_MEASUREMENTS 1025
+#define IDT_DETAILSPANEL 1026
+#define IDT_LEFTFOOTPRINT 1027
+#define IDT_RIGHTFOOTPRINT 1028
+#define IDM_PANELVIEW 1029
+#define IDT_SAVE 1030
+#define IDT_REVERT 1031
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Class AppFrame
@@ -163,6 +166,7 @@ class AppFrame : public wxFrame
 		virtual void OnSymbolMode( wxCommandEvent& event ) { event.Skip(); }
 		virtual void OnCompareMode( wxCommandEvent& event ) { event.Skip(); }
 		virtual void OnDetailsPanel( wxCommandEvent& event ) { event.Skip(); }
+		virtual void OnSyncMode( wxCommandEvent& event ) { event.Skip(); }
 		virtual void OnFilterToggle( wxCommandEvent& event ) { event.Skip(); }
 		virtual void OnSearchPaths( wxCommandEvent& event ) { event.Skip(); }
 		virtual void OnRemoteLink( wxCommandEvent& event ) { event.Skip(); }

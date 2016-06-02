@@ -1,7 +1,7 @@
 /* Librarian for KiCad, a free EDA CAD application.
  *
- * Copyright 2013-2014 CompuPhase
- * $Id: librarymanager.rc 5030 2014-02-10 08:33:24Z thiadmer $
+ * Copyright 2013-2015 CompuPhase
+ * $Id: librarymanager.rc 5259 2015-05-11 11:38:38Z thiadmer $
  */
 
 #include <windows.h>
@@ -15,15 +15,15 @@ AppIcon ICON "res/logo.ico"
  *  All strings MUST have an explicit \0. See the Windows SDK documentation
  *  for details on version information and the VERSIONINFO structure.
  */
-#define VERSION              0
-#define REVISION             6
+#define VERSION              1
+#define REVISION             1
 #define BUILD                SVN_REV
 #define VERSIONSTR           SVN_REVSTR "\0"
 #define VERSIONNAME          "Librarian.exe\0"
 #define VERSIONDESCRIPTION   "KiCad Librarian\0"
 #define VERSIONCOMPANYNAME   "CompuPhase\0"
 #define VERSIONPRODUCTNAME   "LibraryManager\0"
-#define VERSIONCOPYRIGHT     "Copyright \251 ITB CompuPhase 2013-2014\0"
+#define VERSIONCOPYRIGHT     "Copyright \251 ITB CompuPhase 2013-2015\0"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION    VERSION, REVISION, BUILD, 0

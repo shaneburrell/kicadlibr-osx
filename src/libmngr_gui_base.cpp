@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////
-// C++ code generated with wxFormBuilder (version Jun  5 2014)
+// C++ code generated with wxFormBuilder (version Jun 17 2015)
 // http://www.wxformbuilder.org/
 //
 // PLEASE DO "NOT" EDIT THIS FILE!
@@ -78,6 +78,10 @@ AppFrame::AppFrame( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	wxMenuItem* m_mnuDetailsPanel;
 	m_mnuDetailsPanel = new wxMenuItem( m_mnuView, IDM_DETAILSPANEL, wxString( _("Details panel") ) + wxT('\t') + wxT("Ctrl+D"), _("The details panel allows you to see properties of the footprint, and adjust them"), wxITEM_CHECK );
 	m_mnuView->Append( m_mnuDetailsPanel );
+	
+	wxMenuItem* m_mnuSyncMode;
+	m_mnuSyncMode = new wxMenuItem( m_mnuView, IDM_SYNCMODE, wxString( _("Synchronize lists") ) + wxT('\t') + wxT("Ctrl+Y"), wxEmptyString, wxITEM_CHECK );
+	m_mnuView->Append( m_mnuSyncMode );
 	
 	m_mnuView->AppendSeparator();
 	
@@ -514,14 +518,14 @@ AppFrame::AppFrame( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	wxBoxSizer* bSizerSaveRevert;
 	bSizerSaveRevert = new wxBoxSizer( wxHORIZONTAL );
 	
-	m_btnSavePart = new wxButton( m_panelSettings, wxID_ANY, _("Save"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_btnSavePart->SetToolTip( _("Save the modified data.") );
+	m_btnSavePart = new wxButton( m_panelSettings, IDT_SAVE, _("Save"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_btnSavePart->SetToolTip( _("Save the modified data (Ctrl + S).") );
 	m_btnSavePart->SetMinSize( wxSize( 54,-1 ) );
 	
 	bSizerSaveRevert->Add( m_btnSavePart, 0, wxTOP|wxBOTTOM|wxLEFT, 3 );
 	
-	m_btnRevertPart = new wxButton( m_panelSettings, wxID_ANY, _("Revert"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_btnRevertPart->SetToolTip( _("Undo modifications and restore to the last saved state.") );
+	m_btnRevertPart = new wxButton( m_panelSettings, IDT_REVERT, _("Revert"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_btnRevertPart->SetToolTip( _("Undo modifications and restore to the last saved state (Ctrl + Z).") );
 	m_btnRevertPart->SetMinSize( wxSize( 54,-1 ) );
 	
 	bSizerSaveRevert->Add( m_btnRevertPart, 0, wxALL, 3 );
@@ -561,6 +565,7 @@ AppFrame::AppFrame( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	this->Connect( m_mnuSymbolMode->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnSymbolMode ) );
 	this->Connect( m_mnuCompareMode->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnCompareMode ) );
 	this->Connect( m_mnuDetailsPanel->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnDetailsPanel ) );
+	this->Connect( m_mnuSyncMode->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnSyncMode ) );
 	this->Connect( m_mnuFilter->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnFilterToggle ) );
 	this->Connect( m_mnuSearchPaths->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnSearchPaths ) );
 	this->Connect( m_mnuRemoteLink->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnRemoteLink ) );
@@ -666,6 +671,7 @@ AppFrame::~AppFrame()
 	this->Disconnect( IDM_SCHEMATICMODE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnSymbolMode ) );
 	this->Disconnect( IDM_COMPAREMODE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnCompareMode ) );
 	this->Disconnect( IDM_DETAILSPANEL, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnDetailsPanel ) );
+	this->Disconnect( IDM_SYNCMODE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnSyncMode ) );
 	this->Disconnect( IDM_FILTER, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnFilterToggle ) );
 	this->Disconnect( wxID_PREFERENCES, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnSearchPaths ) );
 	this->Disconnect( IDM_DLGREMOTE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( AppFrame::OnRemoteLink ) );

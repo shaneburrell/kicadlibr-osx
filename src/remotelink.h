@@ -16,7 +16,7 @@
  *  License for the specific language governing permissions and limitations
  *  under the License.
  *
- *  $Id: remotelink.h 5113 2014-08-13 07:34:05Z thiadmer $
+ *  $Id: remotelink.h 5234 2015-04-08 09:29:58Z thiadmer $
  */
 #ifndef REMOTELINK_H
 #define REMOTELINK_H
@@ -25,7 +25,7 @@
 
 bool curlInit();
 bool curlReset();
-void curlCleanup();
+void curlCleanup(bool global = false);
 
 wxString curlAddUser(const wxString& url, const wxString& user, const wxString& email,
 					 const wxString& hostuser, const wxString& hostpwd, long flags);

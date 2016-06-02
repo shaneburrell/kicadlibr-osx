@@ -2,7 +2,7 @@
  *  Librarian for KiCad, a free EDA CAD application.
  *  Utility functions transferring modules or footprints to/from a repository.
  *
- *  Copyright (C) 2013-2014 CompuPhase
+ *  Copyright (C) 2013-2015 CompuPhase
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy
@@ -16,24 +16,33 @@
  *  License for the specific language governing permissions and limitations
  *  under the License.
  *
- *  $Id: remotelink.cpp 5113 2014-08-13 07:34:05Z thiadmer $
+ *  $Id: remotelink.cpp 5239 2015-04-14 16:25:57Z thiadmer $
  */
 
 #include "librarymanager.h"
 #include "remotelink.h"
+#include <wx/ffile.h>
 #include <wx/fileconf.h>
+#include <wx/filename.h>
 #include <curl/curl.h>
 #include <curl/easy.h>
 
 
-static int Initialized = 0;
+enum {
+	UNINITIALIZED = 0,
+	GLOBAL_INIT,
+	EASY_INIT,
+
+	INIT_FAILED = -1,
+};
+static int Initialized = UNINITIALIZED;
 static bool Valid = false;
 static CURL* curl = 0;
 
 
 bool curlInit()
 {
-	if (Initialized == 0) {
+	if (Initialized == UNINITIALIZED) {
 		Valid = false;
 		CURLcode code;
 		#if defined _WIN32
@@ -41,13 +50,14 @@ bool curlInit()
 		#else
 			code = curl_global_init(CURL_GLOBAL_SSL);
 		#endif
-		Initialized = (code == CURLE_OK) ? 1 : -1;
-		if (Initialized > 0) {
-			curl = curl_easy_init();
-			wxASSERT(curl != 0);
-		}
+		Initialized = (code == CURLE_OK) ? GLOBAL_INIT : INIT_FAILED;
 	}
-	if (Initialized < 0) {
+	if (Initialized == GLOBAL_INIT) {
+		curl = curl_easy_init();
+		if (curl)
+			Initialized = EASY_INIT;
+	}
+	if (Initialized == INIT_FAILED) {
 		Valid = false;	/* should already be false */
 		return false;
 	}
@@ -104,82 +114,130 @@ bool curlReset()
 	return true;
 }
 
-void curlCleanup()
+void curlCleanup(bool global)
 {
-	Initialized = 0;
 	Valid = false;
 	if (curl) {
+		wxASSERT(Initialized == EASY_INIT);
+		Initialized = GLOBAL_INIT;
 		curl_easy_cleanup(curl);
 		curl = 0;
 	}
-	curl_global_cleanup();
+	if (global && Initialized >= GLOBAL_INIT) {
+		curl_global_cleanup();
+		Initialized = UNINITIALIZED;
+	}
 }
 
 /* Converts a hex character to its integer value */
 static inline char from_hex(char ch)
 {
-  return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+	return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
 }
 
 /* Converts an integer value to its hex character*/
 static inline char to_hex(char code)
 {
-  static char hex[] = "0123456789abcdef";
-  return hex[code & 15];
+	static char hex[] = "0123456789abcdef";
+	return hex[code & 15];
 }
 
 /* Returns a url-encoded version of the input string */
 wxString URLEncode(const wxString& string)
 {
-  char *buf = (char*)malloc(string.length() * 3 + 1);
-  wxASSERT(buf != NULL);
-  if (buf == NULL)
-	return wxEmptyString;
-  char *pbuf = buf;
-  wxCharBuffer source = string.mb_str(wxConvUTF8);
-  for (const char *pstr = source.data(); *pstr; pstr++) {
-    if (*pstr >= 0 && *pstr <= 0x7f
-		&& (isalnum(*pstr) || *pstr == '-' || *pstr == '_' || *pstr == '.' || *pstr == '~'))
-	{
-      *pbuf++ = *pstr;
-	} else if (*pstr == ' ') {
-      *pbuf++ = '+';
-	} else {
-      *pbuf++ = '%';
-	  *pbuf++ = to_hex(*pstr >> 4);
-	  *pbuf++ = to_hex(*pstr & 15);
+	char *buf = (char*)malloc(string.length() * 3 + 1);	/* absolute worst case */
+	if (!buf)
+		return wxEmptyString;
+	char *pbuf = buf;
+	wxCharBuffer source = string.mb_str(wxConvUTF8);
+	for (const char *pstr = source.data(); *pstr; pstr++) {
+		if (*pstr >= 0 && *pstr <= 0x7f
+			&& (isalnum(*pstr) || *pstr == '-' || *pstr == '_' || *pstr == '.' || *pstr == '~'))
+		{
+			*pbuf++ = *pstr;
+		} else if (*pstr == ' ') {
+				*pbuf++ = '+';
+		} else {
+			*pbuf++ = '%';
+			*pbuf++ = to_hex(*pstr >> 4);
+			*pbuf++ = to_hex(*pstr & 15);
+		}
 	}
-  }
-  *pbuf = '\0';
-  wxString result = wxString::FromAscii(buf);
-  free((void*)buf);
-  return result;
+	*pbuf = '\0';
+	wxString result = wxString::FromAscii(buf);
+	free((void*)buf);
+	return result;
 }
 
 /* Returns a url-decoded version of the input string */
 wxString URLDecode(const wxString& string)
 {
-  wxCharBuffer source = string.mb_str();
-  const char *pstr = source.data();
-  char *buf = (char*)malloc(strlen(pstr) + 1);
-  char *pbuf = buf;
-  while (*pstr) {
-    if (*pstr == '%') {
-      if (pstr[1] && pstr[2]) {
-        *pbuf++ = from_hex(pstr[1]) << 4 | from_hex(pstr[2]);
-        pstr += 2;
-      }
-    } else if (*pstr == '+') {
-      *pbuf++ = ' ';
-    } else {
-      *pbuf++ = *pstr;
-    }
-    pstr++;
-  }
-  *pbuf = '\0';
-  wxString result = wxString::FromAscii(buf);
-  free((void*)buf);
-  return result;
+	wxCharBuffer source = string.mb_str();
+	const char *pstr = source.data();
+	char *buf = (char*)malloc(strlen(pstr) + 1);
+	if (!buf)
+		return wxEmptyString;
+	char *pbuf = buf;
+	while (*pstr) {
+		if (*pstr == '%') {
+			if (pstr[1] && pstr[2]) {
+				*pbuf++ = from_hex(pstr[1]) << 4 | from_hex(pstr[2]);
+				pstr += 2;
+			}
+		} else if (*pstr == '+') {
+			*pbuf++ = ' ';
+		} else {
+			*pbuf++ = *pstr;
+		}
+		pstr++;
+	}
+	*pbuf = '\0';
+	wxString result = wxString::FromAscii(buf);
+	free((void*)buf);
+	return result;
+}
+
+static wxString Base64Encode(const unsigned char* buffer, size_t size, bool linefeeds)
+{
+	const static wxChar Lookup[] = wxT("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
+	const static wxChar Padding = wxT('=');
+
+	wxString encoded;
+	encoded.Alloc((size / 3 + (size % 3 > 0)) * 4);
+
+	unsigned temp;
+	size_t idx;
+	for (idx = 0; idx < size / 3; idx++) {
+		if (linefeeds && idx > 0 && idx % 16 == 0)
+			encoded += wxT("\r\n");	/* add a line break after 16 byte triplets */
+		temp  = (unsigned)(*buffer++) << 16;	/* Convert to big endian */
+		temp += (unsigned)(*buffer++) << 8;
+		temp += (unsigned)(*buffer++);
+		encoded += Lookup[(temp & 0x00FC0000) >> 18];
+		encoded += Lookup[(temp & 0x0003F000) >> 12];
+		encoded += Lookup[(temp & 0x00000FC0) >> 6 ];
+		encoded += Lookup[(temp & 0x0000003F)      ];
+	}
+	if (linefeeds && idx > 0 && idx % 16 == 0)
+		encoded += wxT("\r\n");
+	switch (size % 3) {
+	case 1:
+		temp  = (unsigned)(*buffer++) << 16;
+		encoded += Lookup[(temp & 0x00FC0000) >> 18];
+		encoded += Lookup[(temp & 0x0003F000) >> 12];
+		encoded += Padding;
+		encoded += Padding;
+		break;
+	case 2:
+		temp  = (unsigned)(*buffer++) << 16;
+		temp += (unsigned)(*buffer++) << 8;
+		encoded += Lookup[(temp & 0x00FC0000) >> 18];
+		encoded += Lookup[(temp & 0x0003F000) >> 12];
+		encoded += Lookup[(temp & 0x00000FC0) >> 6 ];
+		encoded += Padding;
+		break;
+	}
+	return encoded;
 }
 
 wxString Scramble(const wxString& source)
@@ -204,7 +262,7 @@ static size_t write_data(void *buffer, size_t size, size_t nmemb, void *userp)
 }
 
 /** The URL and other parameters must be passed in explicitly; this routine is
- *	called before the settings are final.
+ *  called before the settings are final.
  *
  *  \return wxEmptyString on success, error message on failure.
  */
@@ -447,16 +505,6 @@ wxString curlPut(const wxString& partname, const wxString& category, const wxArr
 	return data;
 }
 
-extern "C" {
-	static
-		size_t read_data(void *bufptr, size_t size, size_t nitems, FILE *userp)
-	{
-		size_t read;
-		read = fread(bufptr, size, nitems, userp);
-		return read;
-	}
-}
-
 /** curlPutInfo() updates a part in the repository.
  *  The author of the part is implicitly set to the user name.
  */
@@ -484,6 +532,20 @@ wxString curlPutInfo(const wxString& partname, const wxString& category, const w
 
 	post += wxT("&") + fields;
 
+	if (imagefile.Length() > 0) {
+		wxFFile imgdata(imagefile, wxT("rb"));
+		if (imgdata.IsOpened()) {
+			wxFileOffset length = imgdata.Length();
+			unsigned char *buffer = new unsigned char[length];
+			imgdata.Read(buffer, length);
+			imgdata.Close();
+			wxFileName fname(imagefile);
+			post += wxT("&thumb=data:image/") + fname.GetExt().MakeLower() + wxT(";base64,")
+					+ Base64Encode(buffer, length, false);
+			delete[] buffer;
+		}
+	}
+
 	wxCharBuffer postbuffer = post.mb_str();
 	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postbuffer.data());
 	CURLcode code = curl_easy_perform(curl);
@@ -492,52 +554,9 @@ wxString curlPutInfo(const wxString& partname, const wxString& category, const w
 
 	data.Trim();
 	data.Trim(false);
-	if (data.CmpNoCase(wxT("ok")) != 0)
-		return data;
-
-	if (imagefile.Length() > 0) {
-		postbuffer = imagefile.mb_str();
-		FILE *fp = fopen(postbuffer.data(), "rb"); /* open file to upload */
-		if (fp != NULL) {
-			size_t filesize;
-			fseek(fp, 0, SEEK_END);
-			filesize = ftell(fp);
-			fseek(fp, 0, SEEK_SET);
-
-			curlReset();
-
-			wxFileConfig *config = new wxFileConfig(APP_NAME, VENDOR_NAME, theApp->GetINIPath());
-			wxString path = partname;
-			int idx;
-			while ((idx = path.Find('/')) >= 0)
-				path[idx] = '-';
-			while ((idx = path.Find(' ')) >= 0)
-				path[idx] = '_';
-			data = config->Read(wxT("repository/url"));
-			data += wxT("/") + path + wxT(".png");
-			data += wxT("?cat=") + category;
-			postbuffer = data.mb_str();
-			curl_easy_setopt(curl, CURLOPT_URL, postbuffer.data());
-
-			curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-			curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_data);
-			curl_easy_setopt(curl, CURLOPT_READDATA, fp);
-			curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t)filesize);
-			data.Clear();
-			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-
-			code = curl_easy_perform(curl);
-			curl_easy_setopt(curl, CURLOPT_READFUNCTION, NULL);
-			curl_easy_setopt(curl, CURLOPT_READDATA, NULL);
-			fclose(fp);
-			curlCleanup();
-			if (code != CURLE_OK)
-				return wxT("Failure to upload the image");
-		}
-	}
-
-	return wxEmptyString;
+	if (data.CmpNoCase(wxT("ok")) == 0)
+		return wxEmptyString;
+	return data;
 }
 
 /** curlDelete() deletes a part from the repository.

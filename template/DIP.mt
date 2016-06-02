@@ -4,6 +4,7 @@
 #pins 8 10 ...
 #param 8 @?PT  2.54 @PP  7.62 @SH  1.6 @PW 1.6  @PL  0.2 @BP  0.65 @TS  15 @TW  0.2 @STP \
 #      5.5 @BW  PT 2 / floor 1 - PP * 2.2 + @BL
+#model DIP
 $MODULE {NAME}
 AR DIP
 Po 0 0 0 15 00000000 00000000 ~~
@@ -36,4 +37,10 @@ Ne 0 ""
 {? PN PT 2 / 1 + <}Po {SH 2 / ~} {PT -0.25 * 0.5 - PN + PP *}
 {? PN PT 2 / >}Po {SH 2 /} {PT 0.75 * 0.5 + PN - PP *}
 $EndPAD
+$SHAPE3D
+Na "{NAME}.wrl"
+Sc 0.3937 0.3937 0.3937
+Of 0 0 0
+Ro 0 0 0
+$EndSHAPE3D
 $EndMODULE {NAME}

@@ -1,5 +1,5 @@
 #version 1
-#brief Aliminium Electrolytic Capacitor
+#brief Aluminium Electrolytic Capacitor
 #pins 2
 #param 2 @PT 4 @PP 2.5 @PW 1.0 @PL 5.3 @BW 5.3 @BL 0.2 @STP 0.2 @BP 0.65 @TS 15 @TW
 #model CAE

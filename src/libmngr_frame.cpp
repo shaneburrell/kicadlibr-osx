@@ -3,7 +3,7 @@
  *  This file contains the code for the main frame, which is almost all of the
  *  user-interface code.
  *
- *  Copyright (C) 2013-2014 CompuPhase
+ *  Copyright (C) 2013-2015 CompuPhase
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy
@@ -17,7 +17,7 @@
  *  License for the specific language governing permissions and limitations
  *  under the License.
  *
- *  $Id: libmngr_frame.cpp 5167 2014-12-23 16:12:23Z thiadmer $
+ *  $Id: libmngr_frame.cpp 5365 2015-10-05 09:45:34Z thiadmer $
  */
 #include "librarymanager.h"
 #include "libmngr_frame.h"
@@ -33,6 +33,7 @@
 #include "svnrev.h"
 #if !defined NO_CURL
 	#include "libmngr_dlgremotelink.h"
+	#include "remotelink.h"
 #endif
 #include <wx/aboutdlg.h>
 #include <wx/accel.h>
@@ -114,12 +115,14 @@ AppFrame(parent)
 		m_btnRevertPart->SetWindowStyle(m_btnRevertPart->GetWindowStyle() | wxBORDER_NONE);
 	#endif
 
-	wxAcceleratorEntry entries[5];
+	wxAcceleratorEntry entries[7];
 	entries[0].Set(wxACCEL_CTRL, '+', IDT_ZOOMIN);		// Ctrl-+
 	entries[1].Set(wxACCEL_CTRL, '=', IDT_ZOOMIN);		// On US keyboards, Ctrl-= is needed instead of Ctrl-+
 	entries[2].Set(wxACCEL_CTRL, WXK_NUMPAD_ADD, IDT_ZOOMIN);
 	entries[3].Set(wxACCEL_CTRL, '-', IDT_ZOOMOUT);
 	entries[4].Set(wxACCEL_CTRL, WXK_NUMPAD_SUBTRACT, IDT_ZOOMOUT);
+	entries[5].Set(wxACCEL_CTRL, 'S', IDT_SAVE);
+	entries[6].Set(wxACCEL_CTRL, 'Z', IDT_REVERT);
 	wxAcceleratorTable accel(sizearray(entries), entries);
 	SetAcceleratorTable(accel);
 
@@ -144,6 +147,8 @@ AppFrame(parent)
 	m_radioViewLeft->Enable(CompareMode);
 	m_radioViewRight->Enable(CompareMode);
 	m_radioViewLeft->SetValue(true);
+	config->Read(wxT("settings/syncmode"), &SyncMode, false);
+	m_menubar->Check(IDM_SYNCMODE, SyncMode);
 
 	config->Read(wxT("display/showlabels"), &ShowLabels, true);
 	config->Read(wxT("display/centrecross"), &DrawCentreCross, true);
@@ -175,6 +180,7 @@ AppFrame(parent)
 	/* configure the status bar */
 	int widths[] = { -1, EDITF_WIDTH };
 	m_statusBar->SetFieldsCount(2, widths);
+	m_statusBar->SetStatusText(wxT("(no filter)"), 1);
 	m_editFilter = new wxTextCtrl(m_statusBar, IDC_FILTER, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 	m_editFilter->SetToolTip(wxT("Enter one or more keywords to filter the footprints/symbols on"));
 	wxRect rect;
@@ -232,6 +238,10 @@ void libmngrFrame::OnCloseApp(wxCloseEvent& event)
 	for (int fp = 0; fp < 2; fp++)
 		PartData[fp].Clear();
 
+	#if !defined NO_CURL
+		curlCleanup(true);
+	#endif
+
 	wxSize size = GetSize();
 	wxFileConfig *config = new wxFileConfig(APP_NAME, VENDOR_NAME, theApp->GetINIPath());
 	config->Write(wxT("settings/framewidth"), size.GetWidth());
@@ -240,6 +250,7 @@ void libmngrFrame::OnCloseApp(wxCloseEvent& event)
 	config->Write(wxT("settings/scale"), Scale);
 	config->Write(wxT("settings/symbolmode"), SymbolMode);
 	config->Write(wxT("settings/comparemode"), CompareMode);
+	config->Write(wxT("settings/syncmode"), SyncMode);
 
 	config->Write(wxT("settings/splitter"), m_splitter->GetSashPosition());
 	if (m_splitterViewPanel->IsSplit() && m_toolBar->GetToolState(IDT_DETAILSPANEL)) {
@@ -397,6 +408,7 @@ void libmngrFrame::OnNewLibrary(wxCommandEvent& /*event*/)
 		HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, LEFTPANEL);
 	else if (refresh == RIGHTPANEL)
 		HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, RIGHTPANEL);
+	SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
 	m_panelView->Refresh();
 }
 
@@ -484,6 +496,7 @@ void libmngrFrame::OnRenameLibrary(wxCommandEvent& /*event*/)
 					m_choiceModuleRight->SetSelection(idx);
 				HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, RIGHTPANEL);
 			}
+			SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
 			m_panelView->Refresh();
 		} else {
 			wxMessageBox(wxT("Failed to rename the library (access denied or conflicting names)"));
@@ -577,6 +590,7 @@ void libmngrFrame::OnNewFootprint(wxCommandEvent& /*event*/)
 			HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, LEFTPANEL);
 		if (side >= 0)
 			HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, RIGHTPANEL);
+		SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
 		/* load the newly created part */
 		RemoveSelection(m_listModulesLeft, &SelectedPartLeft);
 		RemoveSelection(m_listModulesRight, &SelectedPartRight);
@@ -695,6 +709,7 @@ void libmngrFrame::OnNewSymbol(wxCommandEvent& /*event*/)
 			HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, LEFTPANEL);
 		if (side >= 0)
 			HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, RIGHTPANEL);
+		SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
 		/* load the newly created part */
 		RemoveSelection(m_listModulesLeft, &SelectedPartLeft);
 		RemoveSelection(m_listModulesRight, &SelectedPartRight);
@@ -1045,6 +1060,40 @@ void libmngrFrame::OnDetailsPanel(wxCommandEvent& /*event*/)
 	ToggleDetailsPanel(details);
 }
 
+void libmngrFrame::OnSyncMode(wxCommandEvent& /*event*/)
+{
+	CheckSavePart();
+	wxBusyCursor cursor;
+	SyncMode = m_menubar->IsChecked(IDM_SYNCMODE);
+	/* keep selections in both footprints */
+	long selLeft = m_listModulesLeft->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+	long selRight = m_listModulesRight->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+	/* reload the module lists, for both listboxes */
+	HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, BOTHPANELS);
+	HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, BOTHPANELS);
+	SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+	/* restore selections */
+	if (SyncMode) {
+		long sel = (selLeft < 0) ? selRight : selLeft;
+		if (sel >= 0) {
+			m_listModulesLeft->SetItemState(selLeft, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
+			m_listModulesRight->SetItemState(selRight, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
+			m_listModulesLeft->EnsureVisible(selLeft);
+			m_listModulesRight->EnsureVisible(selRight);
+		}
+	} else {
+		if (selLeft >= 0) {
+			m_listModulesLeft->SetItemState(selLeft, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
+			m_listModulesLeft->EnsureVisible(selLeft);
+		}
+		if (selRight >= 0) {
+			m_listModulesRight->SetItemState(selRight, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
+			m_listModulesRight->EnsureVisible(selRight);
+		}
+	}
+	m_panelView->Refresh();
+}
+
 void libmngrFrame::OnFilterToggle(wxCommandEvent& /*event*/)
 {
 	if (m_editFilter->IsShown()) {
@@ -1054,6 +1103,7 @@ void libmngrFrame::OnFilterToggle(wxCommandEvent& /*event*/)
 		if (filter.Length() > 0) {
 			HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, BOTHPANELS);
 			HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, BOTHPANELS);
+			SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
 			m_panelView->Refresh();
 		}
 	} else {
@@ -1096,6 +1146,7 @@ void libmngrFrame::OnFilterEnter(wxCommandEvent& /*event*/)
 	if (FilterChanged) {
 		HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, BOTHPANELS);
 		HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, BOTHPANELS);
+		SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
 		m_panelView->Refresh();
 		m_editFilter->SetBackgroundColour(ENABLED);
 		/* check whether the filter must be hidden */
@@ -1133,10 +1184,12 @@ void libmngrFrame::OnAbout(wxCommandEvent& /*event*/)
 	info.SetName(wxT("KiCad Librarian"));
 	info.SetVersion(wxT(SVN_REVSTR));
 	info.SetDescription(description);
-	info.SetCopyright(wxT("(C) 2013-2014 ITB CompuPhase"));
+	info.SetCopyright(wxT("(C) 2013-2015 ITB CompuPhase"));
 	info.SetIcon(icon);
 	info.SetWebSite(wxT("http://www.compuphase.com/"));
+	info.AddDeveloper(wxT("The logo of KiCad Librarian is designed by http://icons8.com/"));
 	info.AddDeveloper(wxT("KiCad Librarian uses Haru PDF for the reports"));
+	info.AddDeveloper(wxT("KiCad Librarian uses Curl to access a remote repository"));
 	info.AddDeveloper(wxT("KiCad Librarian uses the wxWidgets GUI library"));
 	wxAboutBox(info);
 }
@@ -1148,16 +1201,27 @@ void libmngrFrame::OnMovePart(wxCommandEvent& /*event*/)
 	wxString rightmod = GetSelection(m_listModulesRight, m_choiceModuleRight, &source, &author);
 	wxASSERT(leftmod.IsEmpty() || rightmod.IsEmpty());
 
+	wxListCtrl* tgtlist = NULL;
+	int syncdir = 0;
 	if (leftmod.length() > 0) {
 		modname = leftmod;
 		long idx = m_choiceModuleRight->GetCurrentSelection();
 		wxASSERT(idx >= 0 && idx < (long)m_choiceModuleRight->GetCount());
 		target = m_choiceModuleRight->GetString(idx);
+		tgtlist = m_listModulesRight;
+		syncdir = LEFTPANEL;
 	} else if (rightmod.length() > 0) {
 		modname = rightmod;
 		long idx = m_choiceModuleLeft->GetCurrentSelection();
 		wxASSERT(idx >= 0 && idx < (long)m_choiceModuleLeft->GetCount());
 		target = m_choiceModuleLeft->GetString(idx);
+		tgtlist = m_listModulesLeft;
+		syncdir = RIGHTPANEL;
+	}
+	if (source.length() == 0 || target.length() == 0) {
+		wxASSERT(SyncMode);
+		wxMessageBox(wxT("This part does not exist."));
+		return;
 	}
 	wxASSERT(source.length() > 0);
 	wxASSERT(target.length() > 0);
@@ -1177,12 +1241,20 @@ void libmngrFrame::OnMovePart(wxCommandEvent& /*event*/)
 			if (target.CmpNoCase(LIB_REPOS) == 0) {
 				wxString preview = ExportSymbolBitmap(modname);
 				StoreSymbolInfo(modname, GetDescription(PartData[0], true),
-								GetAliases(PartData[0]), GetFootprints(PartData[0]), preview);
+								GetKeywords(PartData[0], true), GetAliases(PartData[0]),
+								GetFootprints(PartData[0]), preview);
 				wxRemoveFile(preview);
 			}
 			/* both libraries need to be refreshed */
 			HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, BOTHPANELS);
 			HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, BOTHPANELS);
+			SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+			/* find the item in the target list, to scroll to that position */
+			wxASSERT(tgtlist != NULL);
+			long idx = tgtlist->FindItem(-1, modname);
+			if (idx >= 0)
+				tgtlist->EnsureVisible(idx);
+			SyncScroll(syncdir);
 			m_panelView->Refresh();
 		} else {
 			wxMessageBox(wxT("Operation failed."));
@@ -1206,13 +1278,18 @@ void libmngrFrame::OnMovePart(wxCommandEvent& /*event*/)
 
 		if (sourcetype == VER_S_EXPR && targettype == VER_S_EXPR) {
 			/* create full names for source and target, then move the file */
-			wxFileName old_fname(source, modname);
-			old_fname.SetExt(wxT("kicad_mod"));
-			wxFileName new_fname(target, modname);
-			new_fname.SetExt(wxT("kicad_mod"));
+			wxFileName old_fname(source, modname + wxT(".kicad_mod"));
+			wxFileName new_fname(target, modname + wxT(".kicad_mod"));
 			if (wxRenameFile(old_fname.GetFullPath(), new_fname.GetFullPath(), true)) {
 				HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, BOTHPANELS);
 				HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, BOTHPANELS);
+				SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+				/* find the item in the target list, to scroll to that position */
+				wxASSERT(tgtlist != NULL);
+				long idx = tgtlist->FindItem(-1, modname);
+				if (idx >= 0)
+					tgtlist->EnsureVisible(idx);
+				SyncScroll(syncdir);
 				m_panelView->Refresh();
 			} else {
 				wxMessageBox(wxT("Operation failed."));
@@ -1252,13 +1329,20 @@ void libmngrFrame::OnMovePart(wxCommandEvent& /*event*/)
 					else
 						span = Footprint[0].PitchVertical ? Footprint[0].SpanHor : Footprint[0].SpanVer;
 					wxString preview = ExportFootprintBitmap(modname);
-					StoreFootprintInfo(modname, GetDescription(sourcedata, false),
-						               Footprint[0].Pitch, span, Footprint[0].PadCount, preview);
+					StoreFootprintInfo(modname, GetDescription(sourcedata, false), GetKeywords(PartData[0], false),
+									   Footprint[0].Pitch, span, Footprint[0].PadCount, preview);
 					wxRemoveFile(preview);
 				}
 				/* both libraries need to be refreshed */
 				HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, BOTHPANELS);
 				HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, BOTHPANELS);
+				SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+				/* find the item in the target list, to scroll to that position */
+				wxASSERT(tgtlist != NULL);
+				long idx = tgtlist->FindItem(-1, modname);
+				if (idx >= 0)
+					tgtlist->EnsureVisible(idx);
+				SyncScroll(syncdir);
 				m_panelView->Refresh();
 			} else {
 				wxMessageBox(wxT("Operation failed."));
@@ -1290,6 +1374,11 @@ void libmngrFrame::OnCopyPart(wxCommandEvent& /*event*/)
 		wxASSERT(idx >= 0 && idx < (long)m_choiceModuleLeft->GetCount());
 		target = m_choiceModuleLeft->GetString(idx);
 	}
+	if (source.length() == 0 || target.length() == 0) {
+		wxASSERT(SyncMode);
+		wxMessageBox(wxT("This part does not exist."));
+		return;
+	}
 	wxASSERT(source.length() > 0);
 	wxASSERT(target.length() > 0);
 	wxASSERT(target.CmpNoCase(LIB_ALL) != 0);
@@ -1307,7 +1396,7 @@ void libmngrFrame::OnCopyPart(wxCommandEvent& /*event*/)
 		if (InsertSymbol(target, modname, PartData[0])) {
 			if (target.CmpNoCase(LIB_REPOS) == 0) {
 				wxString preview = ExportSymbolBitmap(modname);
-				StoreSymbolInfo(modname, GetDescription(PartData[0], true),
+				StoreSymbolInfo(modname, GetDescription(PartData[0], true), GetKeywords(PartData[0], true),
 								GetAliases(PartData[0]), GetFootprints(PartData[0]), preview);
 				wxRemoveFile(preview);
 			}
@@ -1315,6 +1404,8 @@ void libmngrFrame::OnCopyPart(wxCommandEvent& /*event*/)
 				HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, LEFTPANEL);
 			else if (refresh == RIGHTPANEL)
 				HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, RIGHTPANEL);
+			SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+			SyncScroll(refresh);
 			m_panelView->Refresh();
 		} else {
 			wxMessageBox(wxT("Operation failed."));
@@ -1338,15 +1429,15 @@ void libmngrFrame::OnCopyPart(wxCommandEvent& /*event*/)
 
 		if (sourcetype == VER_S_EXPR && targettype == VER_S_EXPR) {
 			/* create full names for source and target, then copy the file */
-			wxFileName old_fname(source, modname);
-			old_fname.SetExt(wxT("kicad_mod"));
-			wxFileName new_fname(target, modname);
-			new_fname.SetExt(wxT("kicad_mod"));
+			wxFileName old_fname(source, modname + wxT(".kicad_mod"));
+			wxFileName new_fname(target, modname + wxT(".kicad_mod"));
 			if (wxCopyFile(old_fname.GetFullPath(), new_fname.GetFullPath(), true)) {
 				if (refresh == LEFTPANEL)
 					HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, LEFTPANEL);
 				else if (refresh == RIGHTPANEL)
 					HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, RIGHTPANEL);
+				SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+				SyncScroll(refresh);
 				m_panelView->Refresh();
 			} else {
 				wxMessageBox(wxT("Operation failed."));
@@ -1383,7 +1474,7 @@ void libmngrFrame::OnCopyPart(wxCommandEvent& /*event*/)
 					else
 						span = Footprint[0].PitchVertical ? Footprint[0].SpanHor : Footprint[0].SpanVer;
 					wxString preview = ExportFootprintBitmap(modname);
-					StoreFootprintInfo(modname, GetDescription(sourcedata, false),
+					StoreFootprintInfo(modname, GetDescription(sourcedata, false), GetKeywords(PartData[0], false),
 									   Footprint[0].Pitch, span, Footprint[0].PadCount, preview);
 					wxRemoveFile(preview);
 				}
@@ -1391,6 +1482,8 @@ void libmngrFrame::OnCopyPart(wxCommandEvent& /*event*/)
 					HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, LEFTPANEL);
 				else if (refresh == RIGHTPANEL)
 					HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, RIGHTPANEL);
+				SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+				SyncScroll(refresh);
 				m_panelView->Refresh();
 			} else {
 				wxMessageBox(wxT("Operation failed."));
@@ -1416,6 +1509,12 @@ void libmngrFrame::OnDeletePart(wxCommandEvent& /*event*/)
 		modname = rightmod;
 		refresh = RIGHTPANEL;	/* after deletion, must refresh the right list */
 	}
+
+	if (filename.length() == 0) {
+		wxASSERT(SyncMode);
+		wxMessageBox(wxT("This part does not exist."));
+		return;
+	}
 	wxASSERT(filename.length() > 0);
 
 	if (!ConfirmDelete || wxMessageBox(wxT("Delete \"") + modname + wxT("\"\nfrom ") + filename + wxT("?"), wxT("Confirm deletion"), wxYES_NO | wxICON_QUESTION) == wxYES) {
@@ -1431,6 +1530,8 @@ void libmngrFrame::OnDeletePart(wxCommandEvent& /*event*/)
 				HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, LEFTPANEL);
 			else if (refresh == RIGHTPANEL)
 				HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, RIGHTPANEL);
+			SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+			SyncScroll(refresh);
 			m_panelView->Refresh();
 			UpdateDetails(0);
 		} else {
@@ -1453,6 +1554,12 @@ void libmngrFrame::OnRenamePart(wxCommandEvent& /*event*/)
 	} else if (rightmod.length() > 0) {
 		modname = rightmod;
 		refresh = RIGHTPANEL;	/* after rename, must refresh the right list */
+	}
+
+	if (filename.length() == 0) {
+		wxASSERT(SyncMode);
+		wxMessageBox(wxT("This part does not exist."));
+		return;
 	}
 	wxASSERT(filename.length() > 0);
 
@@ -1486,6 +1593,8 @@ void libmngrFrame::OnRenamePart(wxCommandEvent& /*event*/)
 				wxASSERT(idx < list->GetItemCount());	/* it was just renamed, so it must be found */
 				list->SetItemState(idx, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
 				list->EnsureVisible(idx);
+				SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+				SyncScroll(refresh);
 				m_panelView->Refresh();
 			} else {
 				wxMessageBox(wxT("Operation failed"));
@@ -1509,7 +1618,14 @@ void libmngrFrame::OnDuplicatePart(wxCommandEvent& /*event*/)
 		modname = rightmod;
 		refresh = RIGHTPANEL;	/* after duplicate, must refresh the right list */
 	}
+
+	if (filename.length() == 0) {
+		wxASSERT(SyncMode);
+		wxMessageBox(wxT("This part does not exist."));
+		return;
+	}
 	wxASSERT(filename.length() > 0);
+
 	/* check whether the same library is selected at both sides */
 	wxString otherlib = wxEmptyString;
 	if (refresh < 0) {
@@ -1561,10 +1677,8 @@ void libmngrFrame::OnDuplicatePart(wxCommandEvent& /*event*/)
 				wxArrayString module;
 				if (type == VER_S_EXPR) {
 					/* create full names for source and target, then copy the file */
-					wxFileName old_fname(filename, modname);
-					old_fname.SetExt(wxT("kicad_mod"));
-					wxFileName new_fname(filename, newname);
-					new_fname.SetExt(wxT("kicad_mod"));
+					wxFileName old_fname(filename, modname + wxT(".kicad_mod"));
+					wxFileName new_fname(filename, newname + wxT(".kicad_mod"));
 					result = wxCopyFile(old_fname.GetFullPath(), new_fname.GetFullPath(), true);
 					/* adjust fields in the new file to newname */
 					wxTextFile file;
@@ -1612,6 +1726,8 @@ void libmngrFrame::OnDuplicatePart(wxCommandEvent& /*event*/)
 				list->EnsureVisible(idx);
 				LoadPart(idx, list, 0, 0);
 				UpdateDetails(0);
+				SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+				SyncScroll(refresh);
 				m_statusBar->SetStatusText(wxT("Duplicated symbol/footprint"));
 				m_panelView->Refresh();
 			} else {
@@ -1652,6 +1768,10 @@ void libmngrFrame::OnLeftLibSelect(wxCommandEvent& /*event*/)
 	}
 	WarnNoRepository(m_choiceModuleLeft);
 	HandleLibrarySelect(m_choiceModuleLeft, m_listModulesLeft, LEFTPANEL);
+	SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+	#if !defined NO_CURL
+		curlCleanup(true);
+	#endif
 }
 
 void libmngrFrame::OnRightLibSelect(wxCommandEvent& /*event*/)
@@ -1669,6 +1789,27 @@ void libmngrFrame::OnRightLibSelect(wxCommandEvent& /*event*/)
 	}
 	WarnNoRepository(m_choiceModuleRight);
 	HandleLibrarySelect(m_choiceModuleRight, m_listModulesRight, RIGHTPANEL);
+	SynchronizeLibraries(m_listModulesLeft, m_listModulesRight);
+	#if !defined NO_CURL
+		curlCleanup(true);
+	#endif
+}
+
+void libmngrFrame::SyncScroll(int side)
+{
+	wxASSERT(side == LEFTPANEL || side == RIGHTPANEL);
+	if (SyncMode && m_listModulesLeft->GetItemCount() > 0 && m_listModulesRight->GetItemCount() > 0) {
+		wxListCtrl* src = (side == LEFTPANEL) ? m_listModulesRight : m_listModulesLeft;
+		wxListCtrl* tgt = (side == LEFTPANEL) ? m_listModulesLeft : m_listModulesRight;
+		long total = src->GetItemCount();
+		wxASSERT(total == tgt->GetItemCount());
+		long top = src->GetTopItem();
+		long bottom = top + src->GetCountPerPage();
+		if (bottom > total)
+			bottom = total;
+		tgt->EnsureVisible(top);
+		tgt->EnsureVisible(bottom - 1);
+	}
 }
 
 void libmngrFrame::OnLeftModSelect(wxListEvent& event)
@@ -1681,6 +1822,7 @@ void libmngrFrame::OnLeftModSelect(wxListEvent& event)
 		RemoveSelection(m_listModulesRight, &SelectedPartRight);
 		OffsetX = OffsetY = 0;
 	}
+	SyncScroll(RIGHTPANEL);
 	LoadPart(SelectedPartLeft, m_listModulesLeft, m_choiceModuleLeft, 0);
 	UpdateDetails(0);
 	m_panelView->Refresh();
@@ -1696,6 +1838,7 @@ void libmngrFrame::OnRightModSelect(wxListEvent& event)
 		RemoveSelection(m_listModulesLeft, &SelectedPartLeft);
 		OffsetX = OffsetY = 0;
 	}
+	SyncScroll(LEFTPANEL);
 	LoadPart(SelectedPartRight, m_listModulesRight, m_choiceModuleRight, CompareMode ? 1 : 0);
 	UpdateDetails(CompareMode ? 1 : 0);
 	m_panelView->Refresh();
@@ -1762,7 +1905,7 @@ wxString libmngrFrame::ExportSymbolBitmap(const wxString& modname)
 	/* create the output file */
 	wxString path = modname;
 	int idx;
-	while ((idx = path.Find('/')) >= 0)
+	while ((idx = path.Find('/')) >= 0 || (idx = path.Find('\\')) >= 0)
 		path[idx] = '-';
 	while ((idx = path.Find(' ')) >= 0)
 		path[idx] = '_';
@@ -1818,7 +1961,7 @@ wxString libmngrFrame::ExportFootprintBitmap(const wxString& modname)
 	/* create the output file */
 	wxString path = modname;
 	int idx;
-	while ((idx = path.Find('/')) >= 0)
+	while ((idx = path.Find('/')) >= 0 || (idx = path.Find('\\')) >= 0)
 		path[idx] = '-';
 	while ((idx = path.Find(' ')) >= 0)
 		path[idx] = '_';
@@ -2299,6 +2442,19 @@ void libmngrFrame::DrawFootprints(wxGraphicsContext *gc, int midx, int midy, con
 	wxColour clrBody, clrPad, clrPadFill, clrText, clrHiddenText;
 	wxPoint2DDouble points[5];
 	wxPen pen;
+
+	/* check whether there is at leats one footprint visible */
+	if (PartData[0].Count() == 0 && PartData[1].Count() == 0) {
+		clrText.Set(128, 128, 128);
+		wxFont font(24, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
+		font.SetPointSize(24);
+		gc->SetFont(font, clrText);
+		wxString text = wxT("FOOTPRINT DOES NOT EXIST");
+		wxDouble tw, th, td, tex;
+		gc->GetTextExtent(text, &tw, &th, &td, &tex);
+		gc->DrawText(text, midx - tw/2, midy - th/2);
+		return;
+	}
 
 	for (int fp = 0; fp < 2; fp++) {
 		/* check whether the footprint is visible */
@@ -3136,8 +3292,18 @@ void libmngrFrame::OnPaintViewport(wxPaintEvent& /*event*/)
 {
 	wxPaintDC dc(m_panelView);
 	wxGraphicsContext *gc = wxGraphicsContext::Create(dc);
-	if (PartData[0].Count() == 0 && PartData[1].Count() == 0)
+	if (PartData[0].Count() == 0 && PartData[1].Count() == 0) {
+		wxColour clrText = wxColour(128, 128, 128);
+		wxFont font(24, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
+		font.SetPointSize(24);
+		gc->SetFont(font, clrText);
+		wxString text = SymbolMode ? wxT("NO SYMBOL TO DISPLAY") : wxT("NO FOOTPRINT TO DISPLAY");
+		wxSize sz = m_panelView->GetClientSize();
+		wxDouble tw, th, td, tex;
+		gc->GetTextExtent(text, &tw, &th, &td, &tex);
+		gc->DrawText(text, sz.GetWidth() / 2 + OffsetX - tw/2, sz.GetHeight() / 2 + OffsetY - th/2);
 		return;
+	}
 
 	int transp[2] = { wxALPHA_OPAQUE, 0x80 };	/* this is the transparency for the overlay */
 	if (!CompareMode || !m_toolBar->GetToolState(IDT_LEFTFOOTPRINT))
@@ -3500,6 +3666,43 @@ void libmngrFrame::WarnNoRepository(wxChoice* choice)
 	#endif
 }
 
+/* CompareNames() compares two strings with an algorithm that compares sequences
+ * of digits separately from sequences of other characters; so that SOIC8 comes
+ * before SOIC10
+ */
+int libmngrFrame::CompareNames(const wxString& name1, const wxString& name2)
+{
+	int cmp = 0;
+	unsigned i1 = 0, i2 = 0;
+	while (i1 < name1.length() && i2 < name2.length() && cmp == 0) {
+		if (isdigit(name1[i1]) && isdigit(name2[i2])) {
+			unsigned l1, l2;
+			for (l1 = i1; l1 < name1.length() && (isdigit(name1[l1]) || name1[l1] == '.'); l1++)
+				/* nothing */;
+			for (l2 = i2; l2 < name2.length() && (isdigit(name2[l2]) || name2[l2] == '.'); l2++)
+				/* nothing */;
+			double v1, v2;
+			name1.Mid(i1, l1 - i1).ToDouble(&v1);
+			name2.Mid(i2, l2 - i2).ToDouble(&v2);
+			cmp = (long)((v2 -  v1) * 1000);
+			i1 = l1;
+			i2 = l2;
+		} else {
+			cmp = toupper(name2[i2]) - toupper(name1[i1]);
+			i1++;
+			i2++;
+		}
+	}
+	if (cmp == 0) {
+		/* strings match up to the shortest length, check whether one of the two is longer */
+		if (i1 < name1.length())
+			cmp--;
+		if (i2 < name2.length())
+			cmp++;
+	}
+	return cmp;
+}
+
 long libmngrFrame::GetListPosition(const wxString &name, const wxListCtrl* list)
 {
 	long low, high, mid;
@@ -3511,34 +3714,7 @@ long libmngrFrame::GetListPosition(const wxString &name, const wxListCtrl* list)
 		/* use a comparison algorithm that compares sequences of digits
 		   separately from sequences of other characters; so that SOIC8
 		   comes before SOIC10 */
-		int cmp = 0;
-		unsigned i1 = 0, i2 = 0;
-		while (i1 < name.length() && i2 < item.length() && cmp == 0) {
-			if (isdigit(name[i1]) && isdigit(item[i2])) {
-				unsigned l1, l2;
-				for (l1 = i1; l1 < name.length() && (isdigit(name[l1]) || name[l1] == '.'); l1++)
-					/* nothing */;
-				for (l2 = i2; l2 < item.length() && (isdigit(item[l2]) || item[l2] == '.'); l2++)
-					/* nothing */;
-				double v1, v2;
-				name.Mid(i1, l1 - i1).ToDouble(&v1);
-				item.Mid(i2, l2 - i2).ToDouble(&v2);
-				cmp = (long)((v2 -  v1) * 1000);
-				i1 = l1;
-				i2 = l2;
-			} else {
-				cmp = toupper(item[i2]) - toupper(name[i1]);
-				i1++;
-				i2++;
-			}
-		}
-		if (cmp == 0) {
-			/* strings match up to the shortest length, check whether one of the two is longer */
-			if (i1 < name.length())
-				cmp--;
-			if (i2 < item.length())
-				cmp++;
-		}
+		int cmp = CompareNames(name, item);
 		if (cmp >= 0)
 			high = mid - 1;
 		else
@@ -3547,6 +3723,11 @@ long libmngrFrame::GetListPosition(const wxString &name, const wxListCtrl* list)
 	return low;
 }
 
+/* HandleLibrarySelect() updates the module list for the given side (in "choice" and "list).
+ * The "side" parameter also indicates which side is updated, but it can also be set to
+ * BOTHPANELS; this parameter determines how to handle compare mode and whether to keep
+ * the current selections in the module lists.
+ */
 void libmngrFrame::HandleLibrarySelect(wxChoice* choice, wxListCtrl* list, int side)
 {
 	#if defined _MSC_VER
@@ -3653,6 +3834,16 @@ void libmngrFrame::HandleLibrarySelect(wxChoice* choice, wxListCtrl* list, int s
 	else
 		msg = wxString::Format(wxT("Loaded %d footprints"), list->GetItemCount());
 	m_statusBar->SetStatusText(msg);
+
+	if (side == RIGHTPANEL && SelectedPartLeft >= 0) {
+		LoadPart(SelectedPartLeft, m_listModulesLeft, m_choiceModuleLeft, 0);
+		UpdateDetails(0);
+		m_panelView->Refresh();
+	} else if (side == LEFTPANEL && SelectedPartRight >= 0) {
+		LoadPart(SelectedPartRight, m_listModulesRight, m_choiceModuleRight, CompareMode ? 1 : 0);
+		UpdateDetails(CompareMode ? 1 : 0);
+		m_panelView->Refresh();
+	}
 }
 
 void libmngrFrame::CollectSymbols(const wxString &path, wxListCtrl* list, const wxString& filter)
@@ -3821,6 +4012,63 @@ void libmngrFrame::CollectFootprints(const wxString &path, wxListCtrl* list, con
 	}
 }
 
+void libmngrFrame::SynchronizeLibraries(wxListCtrl* list1, wxListCtrl* list2)
+{
+	if (!SyncMode || list1->GetItemCount() == 0 || list2->GetItemCount() == 0)
+		return;		/* don't synchronize if one of the lists is empty */
+
+	/* first pass, remove phantom entries in both lists */
+	for (int pass = 0; pass < 2; pass++) {
+		wxListCtrl* list = (pass == 0) ? list1 : list2;
+		long row = 0;
+		while (row < list->GetItemCount()) {
+			wxListItem info;
+			info.SetId(row);
+			info.SetColumn(1);
+			info.SetMask(wxLIST_MASK_TEXT);
+			list->GetItem(info);
+			if (info.GetText().Length() == 0)
+				list->DeleteItem(row);
+			else
+				row++;
+		}
+	}
+
+	/* second pass, synchronize by adding phantom entries */
+	long row = 0;
+	while (row < list1->GetItemCount() || row < list2->GetItemCount()) {
+		wxString sym1 = (row < list1->GetItemCount()) ? list1->GetItemText(row) : (wxString)wxEmptyString;
+		wxString sym2 = (row < list2->GetItemCount()) ? list2->GetItemText(row) : (wxString)wxEmptyString;
+		wxASSERT(sym1.Length() > 0 || sym2.Length() > 0);
+		int cmp;
+		if (sym1.Length() == 0)
+			cmp = -1;	/* always copy from right to left when the left element is missing */
+		else if (sym2.Length() == 0)
+			cmp = 1;
+		else
+			cmp = CompareNames(sym1, sym2);
+		if (cmp != 0) {
+			/* mismatch on the names (a symbol in one list does not appear in the other) */
+			wxListCtrl *list = NULL;
+			wxString name;
+			if (cmp < 0) {
+				/* insert symbol from the right list into the left list */
+				list = list1;
+				name = sym2;
+			} else if (cmp > 0) {
+				/* insert symbol from the left list into the right list */
+				list = list2;
+				name = sym1;
+			}
+			wxASSERT(list != NULL);
+			long insertpos = GetListPosition(name, list);
+			long item = list->InsertItem(insertpos, name);
+			list->SetItemTextColour(item, wxColour(160,96,96));
+		}
+		row++;
+	}
+}
+
 void libmngrFrame::LoadPart(int index, wxListCtrl* list, wxChoice* choice, int fp)
 {
 	m_statusBar->SetStatusText(wxEmptyString);
@@ -3838,6 +4086,32 @@ void libmngrFrame::LoadPart(int index, wxListCtrl* list, wxChoice* choice, int f
 		wxASSERT(libidx >= 0 && libidx < (long)choice->GetCount());
 		filename = choice->GetString(libidx);
 	}
+
+	/* in case the module lists are synchronized, the user may click on an item that
+	   is not in the library */
+	if (SyncMode) {
+		wxListItem info;
+		info.SetId(index);
+		info.SetColumn(1);
+		info.SetMask(wxLIST_MASK_TEXT);
+		list->GetItem(info);
+		if (info.GetText().Length() == 0) {
+			/* clear everything and quit */
+			Footprint[fp].Clear(VER_INVALID);
+			BodySize[fp].Clear();
+			LabelData[fp].Clear();
+			if (PinData[fp] != NULL) {
+				delete[] PinData[fp];
+				PinData[fp] = 0;
+				PinDataCount[fp] = 0;
+			}
+			FieldEdited = false;
+			PartEdited = false;
+			PinNamesEdited = false;
+			return;
+		}
+	}
+
 	if (filename.CmpNoCase(LIB_REPOS) == 0) {
 		FromRepository[fp] = true;
 		wxListItem info;
@@ -3869,7 +4143,7 @@ void libmngrFrame::LoadPart(int index, wxListCtrl* list, wxChoice* choice, int f
 		if (!LoadFootprint(filename, symbol, author, DontRebuildTemplate, &PartData[fp], &version)) {
 			/* check what the error is */
 			wxTextFile file;
-			if (!file.Open(filename))
+			if (!wxFileName::DirExists(filename) && !file.Open(filename))
 				wxMessageBox(wxT("Failed to open library ") + filename);
 			else if (version == VER_INVALID)
 				wxMessageBox(wxT("Library ") + filename + wxT(" has an unsupported format."));
@@ -5201,7 +5475,10 @@ bool libmngrFrame::RebuildTemplate()
 		 such as pitch, too */
 	SetVarsFromFields(&rpn, SymbolMode);
 
-	/* refresh the footprint from the template, but only partially */
+	/* refresh the footprint from the template, but only partially (by default) */
+	wxString field = GetTemplateHeaderField(templatename, wxT("flags"), SymbolMode);
+	bool bodyonly = (field.Find(wxT("rebuild")) == wxNOT_FOUND);
+
 	wxArrayString templatemodule;
 	LoadTemplate(templatename, &templatemodule, SymbolMode);
 	bool result;
@@ -5218,7 +5495,7 @@ bool libmngrFrame::RebuildTemplate()
 			PartData[0] = partdata;
 		}
 		Footprint[0].Type = VER_MM;
-		result = FootprintFromTemplate(&PartData[0], templatemodule, rpn, true);
+		result = FootprintFromTemplate(&PartData[0], templatemodule, rpn, bodyonly);
 	}
 	return result;
 }

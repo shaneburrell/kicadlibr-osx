@@ -323,6 +323,21 @@
                         <event name="OnMenuSelection">OnDetailsPanel</event>
                         <event name="OnUpdateUI"></event>
                     </object>
+                    <object class="wxMenuItem" expanded="0">
+                        <property name="bitmap"></property>
+                        <property name="checked">0</property>
+                        <property name="enabled">1</property>
+                        <property name="help"></property>
+                        <property name="id">IDM_SYNCMODE</property>
+                        <property name="kind">wxITEM_CHECK</property>
+                        <property name="label">Synchronize lists</property>
+                        <property name="name">m_mnuSyncMode</property>
+                        <property name="permission">none</property>
+                        <property name="shortcut">Ctrl+Y</property>
+                        <property name="unchecked_bitmap"></property>
+                        <event name="OnMenuSelection">OnSyncMode</event>
+                        <event name="OnUpdateUI"></event>
+                    </object>
                     <object class="separator" expanded="0">
                         <property name="name">m_separator6</property>
                         <property name="permission">none</property>
@@ -5475,7 +5490,7 @@
                                                                         <property name="font"></property>
                                                                         <property name="gripper">0</property>
                                                                         <property name="hidden">0</property>
-                                                                        <property name="id">wxID_ANY</property>
+                                                                        <property name="id">IDT_SAVE</property>
                                                                         <property name="label">Save</property>
                                                                         <property name="max_size"></property>
                                                                         <property name="maximize_button">0</property>
@@ -5497,7 +5512,7 @@
                                                                         <property name="style"></property>
                                                                         <property name="subclass"></property>
                                                                         <property name="toolbar_pane">0</property>
-                                                                        <property name="tooltip">Save the modified data.</property>
+                                                                        <property name="tooltip">Save the modified data (Ctrl + S).</property>
                                                                         <property name="validator_data_type"></property>
                                                                         <property name="validator_style">wxFILTER_NONE</property>
                                                                         <property name="validator_type">wxDefaultValidator</property>
@@ -5563,7 +5578,7 @@
                                                                         <property name="font"></property>
                                                                         <property name="gripper">0</property>
                                                                         <property name="hidden">0</property>
-                                                                        <property name="id">wxID_ANY</property>
+                                                                        <property name="id">IDT_REVERT</property>
                                                                         <property name="label">Revert</property>
                                                                         <property name="max_size"></property>
                                                                         <property name="maximize_button">0</property>
@@ -5585,7 +5600,7 @@
                                                                         <property name="style"></property>
                                                                         <property name="subclass"></property>
                                                                         <property name="toolbar_pane">0</property>
-                                                                        <property name="tooltip">Undo modifications and restore to the last saved state.</property>
+                                                                        <property name="tooltip">Undo modifications and restore to the last saved state (Ctrl + Z).</property>
                                                                         <property name="validator_data_type"></property>
                                                                         <property name="validator_style">wxFILTER_NONE</property>
                                                                         <property name="validator_type">wxDefaultValidator</property>
