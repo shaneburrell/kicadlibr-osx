@@ -4525,12 +4525,12 @@ void libmngrFrame::OnPastePinList(wxCommandEvent& /*event*/)
 						emptyrow = row;	/* keep reference to first row without a pin number */
 				}
 				/* if not found, use the first empty spot in the grid */
-				if (row >= m_gridPinNames->GetRows() && emptyrow >= 0) {
+				if (row >= m_gridPinNames->GetNumberRows() && emptyrow >= 0) {
 					row = emptyrow;
 					wxString pinname = wxString::Format(wxT("%d"), pinnr);
 					m_gridPinNames->SetCellValue(row, 0, pinname);
 				}
-				if (row < m_gridPinNames->GetRows()) {
+				if (row < m_gridPinNames->GetNumberRows()) {
 					if (pinlast)
 						field = tokens[0];	/* pin is last, so description is first */
 					else
@@ -4558,7 +4558,7 @@ void libmngrFrame::OnSetPinType(wxCommandEvent& event)
 	   list of selected cells is complicated, but since our grids are small,
 	   we run over the entire grid until the first selected cell is found */
 	int col = -1;
-	for (int r = 0; r < m_gridPinNames->GetRows() && col < 0; r++)
+	for (int r = 0; r < m_gridPinNames->GetNumberRows() && col < 0; r++)
 		for (int c = 0; c < m_gridPinNames->GetNumberCols() && col < 0; c++)
 			if (m_gridPinNames->IsInSelection(r, c))
 				col = c;
