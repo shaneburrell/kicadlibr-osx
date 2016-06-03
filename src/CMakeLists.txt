@@ -4,7 +4,7 @@
 # CMAKE_EXE_LINKER_FLAGS field (do not add the quotes).
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-
+SET(CMAKE_INSTALL_PREFIX "/usr/local")
 PROJECT(kicadlibrarian)
 
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -80,7 +80,7 @@ ENDIF(LIBRARIAN_USE_CURL)
 ##### Installation instructions
 
 INSTALL(TARGETS kicadlibrarian
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/local/bin
+    DESTINATION ${CMAKE_INSTALL_PREFIX}
     COMPONENT application)
 INSTALL(FILES ${CMAKE_BINARY_DIR}/../doc/kicadlibrarian.pdf
               ${CMAKE_BINARY_DIR}/../doc/LibraryFileFormats.pdf
