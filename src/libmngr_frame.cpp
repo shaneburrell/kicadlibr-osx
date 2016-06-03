@@ -4516,7 +4516,7 @@ void libmngrFrame::OnPastePinList(wxCommandEvent& /*event*/)
 			if (field.ToLong(&pinnr) && pinnr > 0) {
 				/* find the pin number in the grid */
 				int row, emptyrow = -1;
-				for (row = 0; row < m_gridPinNames->GetRows(); row++) {
+				for (row = 0; row < m_gridPinNames->GetNumberRows(); row++) {
 					wxString pinname = m_gridPinNames->GetCellValue(row, 0);
 					long p;
 					if (pinname.ToLong(&p) && p == pinnr)
