@@ -4,7 +4,6 @@
 # CMAKE_EXE_LINKER_FLAGS field (do not add the quotes).
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-SET(CMAKE_INSTALL_PREFIX "/usr/local")
 PROJECT(kicadlibrarian)
 
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -100,9 +99,6 @@ SET(DEB_DESKTOP_DIR     "/usr/local/share/applications")
 SET(DEB_MIME_DIR        "/usr/local/share/mime/packages")
 SET(DEB_PIXMAPS_DIR     "/usr/local/share/pixmaps")
 
-INSTALL(FILES ${CMAKE_BINARY_DIR}/kicadlibrarian.desktop DESTINATION ${DEB_DESKTOP_DIR})
-INSTALL(FILES ${CMAKE_BINARY_DIR}/kicadlibrarian.xml DESTINATION ${DEB_MIME_DIR})
-INSTALL(FILES ${CMAKE_BINARY_DIR}/kicadlibrarian32.png DESTINATION ${DEB_PIXMAPS_DIR})
 
 ##### Packaging instructions
 
