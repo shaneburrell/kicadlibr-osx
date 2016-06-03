@@ -609,7 +609,7 @@ AppFrame::AppFrame( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	m_txtPadCount->Connect( wxEVT_KILL_FOCUS, wxFocusEventHandler( AppFrame::OnKillFocusPadCount ), NULL, this );
 	m_txtPadCount->Connect( wxEVT_COMMAND_TEXT_UPDATED, wxCommandEventHandler( AppFrame::OnTextFieldChange ), NULL, this );
 	m_txtPadCount->Connect( wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler( AppFrame::OnEnterPadCount ), NULL, this );
-	m_gridPinNames->Connect( wxEVT_GRID_CELL_CHANGE, wxGridEventHandler( AppFrame::OnPinNameChanged ), NULL, this );
+	m_gridPinNames->Connect( wxEVT_GRID_CELL_CHANGED, wxGridEventHandler( AppFrame::OnPinNameChanged ), NULL, this );
 	m_gridPinNames->Connect( wxEVT_GRID_CELL_RIGHT_CLICK, wxGridEventHandler( AppFrame::OnPinRightClick ), NULL, this );
 	m_gridPinNames->Connect( wxEVT_KEY_DOWN, wxKeyEventHandler( AppFrame::OnPinNameRearrange ), NULL, this );
 	m_choicePadShape->Connect( wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler( AppFrame::OnChoiceFieldChange ), NULL, this );
@@ -715,7 +715,7 @@ AppFrame::~AppFrame()
 	m_txtPadCount->Disconnect( wxEVT_KILL_FOCUS, wxFocusEventHandler( AppFrame::OnKillFocusPadCount ), NULL, this );
 	m_txtPadCount->Disconnect( wxEVT_COMMAND_TEXT_UPDATED, wxCommandEventHandler( AppFrame::OnTextFieldChange ), NULL, this );
 	m_txtPadCount->Disconnect( wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler( AppFrame::OnEnterPadCount ), NULL, this );
-	m_gridPinNames->Disconnect( wxEVT_GRID_CELL_CHANGE, wxGridEventHandler( AppFrame::OnPinNameChanged ), NULL, this );
+	m_gridPinNames->Disconnect( wxEVT_GRID_CELL_CHANGED, wxGridEventHandler( AppFrame::OnPinNameChanged ), NULL, this );
 	m_gridPinNames->Disconnect( wxEVT_GRID_CELL_RIGHT_CLICK, wxGridEventHandler( AppFrame::OnPinRightClick ), NULL, this );
 	m_gridPinNames->Disconnect( wxEVT_KEY_DOWN, wxKeyEventHandler( AppFrame::OnPinNameRearrange ), NULL, this );
 	m_choicePadShape->Disconnect( wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler( AppFrame::OnChoiceFieldChange ), NULL, this );
