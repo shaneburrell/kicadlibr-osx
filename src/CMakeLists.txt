@@ -96,9 +96,9 @@ INSTALL(FILES ${TPL_FILES}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/template
         COMPONENT templates)
 
-SET(DEB_DESKTOP_DIR     "/usr/share/applications")
-SET(DEB_MIME_DIR        "/usr/share/mime/packages")
-SET(DEB_PIXMAPS_DIR     "/usr/share/pixmaps")
+SET(DEB_DESKTOP_DIR     "/usr/local/share/applications")
+SET(DEB_MIME_DIR        "/usr/local/share/mime/packages")
+SET(DEB_PIXMAPS_DIR     "/usr/local/share/pixmaps")
 
 INSTALL(FILES ${CMAKE_BINARY_DIR}/kicadlibrarian.desktop DESTINATION ${DEB_DESKTOP_DIR})
 INSTALL(FILES ${CMAKE_BINARY_DIR}/kicadlibrarian.xml DESTINATION ${DEB_MIME_DIR})
