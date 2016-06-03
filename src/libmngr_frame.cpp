@@ -4559,7 +4559,7 @@ void libmngrFrame::OnSetPinType(wxCommandEvent& event)
 	   we run over the entire grid until the first selected cell is found */
 	int col = -1;
 	for (int r = 0; r < m_gridPinNames->GetRows() && col < 0; r++)
-		for (int c = 0; c < m_gridPinNames->GetCols() && col < 0; c++)
+		for (int c = 0; c < m_gridPinNames->GetNumberCols() && col < 0; c++)
 			if (m_gridPinNames->IsInSelection(r, c))
 				col = c;
 
@@ -4589,7 +4589,7 @@ void libmngrFrame::OnSetPinType(wxCommandEvent& event)
 	wxASSERT(fieldidx >= 0);
 
 	/* run over the column and act on selected items */
-	for (int r = 0; r < m_gridPinNames->GetRows(); r++) {
+	for (int r = 0; r < m_gridPinNames->GetNumberRows(); r++) {
 		if (m_gridPinNames->IsInSelection(r, col)) {
 			m_gridPinNames->SetCellValue(r, col, field);
 			m_gridPinNames->SetCellBackgroundColour(r, col, CHANGED);
