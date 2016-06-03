@@ -80,7 +80,7 @@ ENDIF(LIBRARIAN_USE_CURL)
 ##### Installation instructions
 
 INSTALL(TARGETS kicadlibrarian
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/local/bin
     COMPONENT application)
 INSTALL(FILES ${CMAKE_BINARY_DIR}/../doc/kicadlibrarian.pdf
               ${CMAKE_BINARY_DIR}/../doc/LibraryFileFormats.pdf
