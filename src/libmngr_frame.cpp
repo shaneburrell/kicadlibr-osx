@@ -4404,7 +4404,7 @@ bool libmngrFrame::RearrangePinNames(int direction)
 	if (templatename.length() == 0)
 		return false;
 
-	int row = m_gridPinNames->GetCursorRow();
+	int row = m_gridPinNames->GetGridCursorRow();
 	int total = m_gridPinNames->GetNumberRows();
 	if ((direction > 0 && row >= total - 1) || (direction < 0 && row <= 0))
 		return false;
