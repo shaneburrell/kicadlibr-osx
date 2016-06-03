@@ -4342,8 +4342,8 @@ void libmngrFrame::OnPinRightClick(wxGridEvent& event)
 	   that cells in other columns are deselected) */
 	bool addselection = true;
 	int total = 0;
-	for (int r = 0; r < m_gridPinNames->GetRows() && addselection; r++) {
-		for (int c = 0; c < m_gridPinNames->GetCols() && addselection; c++) {
+	for (int r = 0; r < m_gridPinNames->GetNumberRows() && addselection; r++) {
+		for (int c = 0; c < m_gridPinNames->GetNumberCols() && addselection; c++) {
 			if (m_gridPinNames->IsInSelection(r, c)) {
 				if (c == col)
 					total++;
